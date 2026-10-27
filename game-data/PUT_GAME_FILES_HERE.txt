@@ -1,0 +1,6 @@
+Copy the contents of data.zip here so you end up with:
+
+  game-data/home/...                    (backstage, game, game_server, cross-server, sql, sk)
+  game-data/www/wwwroot/game/...        (the H5 client, with index.html)
+
+You do NOT need www/server or www/wwwroot/admin.
