@@ -1,0 +1,12 @@
+[mysqld]
+# the Render disk is mounted on /var/lib/mysql; keep data in a sub-folder (avoids lost+found)
+datadir = /var/lib/mysql/data
+character-set-server = utf8mb4
+collation-server = utf8mb4_general_ci
+sql_mode = NO_ENGINE_SUBSTITUTION
+max_allowed_packet = 64M
+max_connections = 200
+skip-name-resolve
+performance_schema = OFF
+innodb_buffer_pool_size = 128M
+innodb_log_file_size = 48M
