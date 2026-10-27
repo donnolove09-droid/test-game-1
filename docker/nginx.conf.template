@@ -1,0 +1,79 @@
+user www-data;
+worker_processes 1;
+pid /tmp/nginx.pid;
+error_log /dev/stderr warn;
+
+events { worker_connections 2048; }
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    access_log off;
+    sendfile on;
+    keepalive_timeout 65;
+    server_tokens off;
+
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/javascript application/javascript application/json image/svg+xml;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    server {
+        listen ${PORT};
+        server_name _;
+        root /srv/game;
+        index index.html;
+
+        location = /healthz {
+            default_type text/plain;
+            return 200 "ok\n";
+        }
+
+        # REST API of the backstage service (login, server list, ...)
+        location /api/ {
+            proxy_pass http://127.0.0.1:9001;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_read_timeout 60s;
+
+            # CORS: the APK/IPA wrapper runs on https://localhost or capacitor://localhost
+            proxy_hide_header Access-Control-Allow-Origin;
+            proxy_hide_header Access-Control-Allow-Methods;
+            proxy_hide_header Access-Control-Allow-Headers;
+            add_header Access-Control-Allow-Origin "*" always;
+            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+            add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" always;
+            if ($request_method = OPTIONS) { return 204; }
+        }
+
+        # WebSocket gateway: the client opens wss://HOST/game?ip=..&port=..
+        # The query string is dropped: the game server expects a plain "GET /" handshake.
+        location = /game {
+            rewrite ^ /? break;
+            proxy_pass http://127.0.0.1:10001;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_read_timeout 3600s;
+            proxy_send_timeout 3600s;
+            proxy_buffering off;
+        }
+
+        location = /index.html {
+            add_header Cache-Control "no-cache";
+        }
+
+        location / {
+            try_files $uri $uri/ =404;
+            expires 7d;
+        }
+    }
+}
