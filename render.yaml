@@ -1,0 +1,50 @@
+# Render Blueprint: MySQL 5.7 (private service + disk) and the game (Docker web service).
+# Both services must stay in the same region to talk over Render's private network.
+services:
+  - type: pserv
+    name: loli-mysql
+    runtime: docker
+    region: singapore
+    plan: starter
+    dockerfilePath: ./mysql/Dockerfile
+    dockerContext: ./mysql
+    disk:
+      name: mysql-data
+      mountPath: /var/lib/mysql
+      sizeGB: 2
+    envVars:
+      - key: MYSQL_ROOT_PASSWORD
+        generateValue: true
+      - key: MYSQL_ROOT_HOST
+        value: "%"
+
+  - type: web
+    name: loli-game
+    runtime: docker
+    region: singapore
+    plan: standard          # 2 GB RAM. If the service keeps restarting (out of memory) switch to: pro (4 GB)
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    envVars:
+      - key: DB_HOST
+        fromService:
+          type: pserv
+          name: loli-mysql
+          property: host
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_PASSWORD
+        fromService:
+          type: pserv
+          name: loli-mysql
+          envVarKey: MYSQL_ROOT_PASSWORD
+      - key: REDIS_PASSWORD
+        generateValue: true
+      # JVM heap sizes (fit a 2 GB instance). On a 4 GB plan use e.g. 256m / 1024m / 512m.
+      - key: XMX_BACKSTAGE
+        value: 128m
+      - key: XMX_GAME
+        value: 448m
+      - key: XMX_CROSS
+        value: 192m
